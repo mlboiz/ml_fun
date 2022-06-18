@@ -1,4 +1,8 @@
-dash
+dash==2.4.1
+dash-extensions
+dash-bootstrap-components
+quart
+opencv-python
 numpy
 pandas
 tensorflow
