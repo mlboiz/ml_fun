@@ -18,6 +18,11 @@ from PIL import Image
 from files_structure import get_files_structure
 from config import config
 
+STOP_CAMERA = False
+CAPTURE_BUTTON_STATES = {
+    True: "NEW IMAGE!",
+    False: "CAPTURE IMAGE!"
+}
 
 class VideoCamera(object):
     def __init__(self, video_path):
@@ -108,9 +113,16 @@ image_manipulation_tab = dcc.Tab(
         children=[
             dbc.Row([
                 dbc.Col(
-                    html.Div([
-                        video_streaming_elem
-                    ]), width=7
+                    [
+                        dbc.Row([video_streaming_elem]),
+                        dbc.Row([
+                            dbc.Button(
+                                CAPTURE_BUTTON_STATES[STOP_CAMERA],
+                                id="capture_image",
+                                color="primary"
+                            )
+                        ])
+                    ], width=7
                 ),
                 dbc.Col(html.Div([
                     dcc.Tabs(
@@ -154,7 +166,8 @@ layout = html.Div(
             ]
         ),
         WebSocket(url=f"ws://127.0.0.1:5000/stream", id="ws"),
-        dcc.Store(id="style_image_data", data=None)
+        dcc.Store(id="style_image_data", data=None),
+        dcc.Store(id="saved_image", data=None)
     ],
     style={"max_height": "100vh"}
 )
@@ -164,12 +177,14 @@ app.layout = layout
 
 @server.websocket("/stream")
 async def stream():
+    global STOP_CAMERA
     camera = VideoCamera(0)
     while 1:
         if DELAY_BETWEEN_FRAMES is not None:
             await asyncio.sleep(DELAY_BETWEEN_FRAMES)
         frame = camera.get_frame()
-        await websocket.send(f"data:image/jpeg;base64, {base64.b64encode(frame).decode()}")
+        if not STOP_CAMERA:
+            await websocket.send(f"data:image/jpeg;base64, {base64.b64encode(frame).decode()}")
 
 
 @app.callback(
@@ -190,6 +205,18 @@ def update_style_image(filename):
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return f"data:image/{ext};base64, " + encoded, ndarray_img
+
+@app.callback(
+    Output("saved_image", "data"),
+    Output("capture_image", "value"),
+    Input("capture_image", "n_clicks"),
+    State("ws", "message")
+)
+def capture_image(n_clicks, raw_image):
+    global STOP_CAMERA
+    image = raw_image.get("data", None)
+    STOP_CAMERA = not STOP_CAMERA
+    return np.array(Image.open(BytesIO(base64.b64decode(bytes(image[24:], "UTF-8"))))), CAPTURE_BUTTON_STATES[STOP_CAMERA]
 
 
 app.clientside_callback(  # todo: add photo capturing!
