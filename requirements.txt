@@ -1,6 +1,7 @@
 dash==2.4.1
 dash-extensions
 dash-bootstrap-components
+dash-daq
 quart
 opencv-python
 numpy

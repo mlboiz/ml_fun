@@ -8,6 +8,7 @@ import dash
 from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
+import dash_daq as daq
 from quart import Quart, websocket
 from dash_extensions import WebSocket
 import dash_bootstrap_components as dbc
@@ -116,10 +117,11 @@ image_manipulation_tab = dcc.Tab(
                     [
                         dbc.Row([video_streaming_elem]),
                         dbc.Row([
-                            dbc.Button(
-                                CAPTURE_BUTTON_STATES[STOP_CAMERA],
+                            daq.BooleanSwitch(
                                 id="capture_image",
-                                color="primary"
+                                on=STOP_CAMERA,
+                                label=CAPTURE_BUTTON_STATES[STOP_CAMERA],
+                                labelPosition="top"
                             )
                         ])
                     ], width=7
@@ -208,8 +210,8 @@ def update_style_image(filename):
 
 @app.callback(
     Output("saved_image", "data"),
-    Output("capture_image", "value"),
-    Input("capture_image", "n_clicks"),
+    Output("capture_image", "label"),
+    Input("capture_image", "on"),
     State("ws", "message")
 )
 def capture_image(n_clicks, raw_image):
