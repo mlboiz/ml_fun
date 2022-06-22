@@ -1,4 +1,5 @@
 {
   "file_extension": ".jpg",
-  "styles_dir": "/Users/gwilczynski/projects/education/ml_fun/style_transfer/styles"
+  "styles_dir": "",
+  "path_for_hub_models": ""
 }

@@ -7,5 +7,6 @@ opencv-python
 numpy
 pandas
 tensorflow
+tensorflow-hub
 matplotlib
 Pillow

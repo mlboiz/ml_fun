@@ -18,12 +18,15 @@ from PIL import Image
 
 from files_structure import get_files_structure
 from config import config
+from style_transfer.style_transfer import StyleTransfer
 
 STOP_CAMERA = False
 CAPTURE_BUTTON_STATES = {
     True: "NEW IMAGE!",
     False: "CAPTURE IMAGE!"
 }
+STYLE_TRANSFER = StyleTransfer(config["path_for_hub_models"])
+
 
 class VideoCamera(object):
     def __init__(self, video_path):
@@ -139,7 +142,8 @@ image_manipulation_tab = dcc.Tab(
             ]),
             dbc.Row([
                 html.Div([html.P("down")])
-            ])
+            ]),
+            html.Img(id="transformed_image"),
 
         ]
     )
@@ -226,6 +230,25 @@ app.clientside_callback(  # todo: add photo capturing!
     Output(f"video", "src"),
     Input(f"ws", "message")
 )
+
+
+@app.callback(
+    Output("transformed_image", "src"),
+    Input("style_button", "n_clicks"),
+    State("saved_image", "data"),
+    State("style_image_data", "data"),
+    prevent_initial_call=True
+)
+def transfer_style(n_clicks, content_image, style_image):
+    stylized_image = STYLE_TRANSFER.stylize(content_image, style_image)
+    image = Image.fromarray(stylized_image)
+    buffer = BytesIO()
+    ext = "png"
+    image.save(buffer, format=ext)
+    encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return f"data:image/{ext};base64, " + encoded
+
 
 if __name__ == '__main__':
     threading.Thread(target=app.run_server).start()
