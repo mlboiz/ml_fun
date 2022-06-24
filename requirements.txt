@@ -10,3 +10,4 @@ tensorflow
 tensorflow-hub
 matplotlib
 Pillow
+transformers[tf-cpu]

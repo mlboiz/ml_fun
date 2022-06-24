@@ -19,13 +19,15 @@ from PIL import Image
 from files_structure import get_files_structure
 from config import config
 from style_transfer.style_transfer import StyleTransfer
+from text_generation.text_generation import TextGenerator
 
 STOP_CAMERA = False
 CAPTURE_BUTTON_STATES = {
     True: "NEW IMAGE!",
     False: "CAPTURE IMAGE!"
 }
-STYLE_TRANSFER = StyleTransfer(config["path_for_hub_models"])
+STYLE_TRANSFER = StyleTransfer(config["path_for_hub_models"], out_image_size=1024)
+TEXT_GENERATOR = TextGenerator()
 
 
 class VideoCamera(object):
@@ -155,7 +157,19 @@ text_generator_tab = dcc.Tab(
     children=html.Div(
         id="text_generation_body",
         children=[
-            html.P("Text generation")
+            html.H2("GPT-2 - model by OpenAI"),
+            html.P("Please provide text input and press 'GENERATE!' button"),
+            dcc.Textarea(
+                    id='text-generator-input',
+                    value='I was on the Dreamersland music and art festival',
+                    style={'width': '100%', 'height': 200},
+            ),
+            dbc.Button(
+                        "GENERATE!",
+                        id="generate-text-button",
+                        color="primary"
+                        ),
+            html.Div(id='text-generator-output', style={'whiteSpace': 'pre-line', 'width': '500px'})
         ]
     )
 )
@@ -248,6 +262,16 @@ def transfer_style(n_clicks, content_image, style_image):
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return f"data:image/{ext};base64, " + encoded
+
+
+@app.callback(
+    Output('text-generator-output', 'children'),
+    Input('generate-text-button', 'n_clicks'),
+    State('text-generator-input', 'value'),
+    prevent_initial_call=True
+)
+def generate_output(n_clicks, input_text):
+    return TEXT_GENERATOR.generate(input_text)
 
 
 if __name__ == '__main__':
