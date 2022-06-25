@@ -20,6 +20,7 @@ from files_structure import get_files_structure
 from config import config
 from style_transfer.style_transfer import StyleTransfer
 from text_generation.text_generation import TextGenerator
+from deep_dream.deep_dream import DeepDreamer
 
 STOP_CAMERA = False
 CAPTURE_BUTTON_STATES = {
@@ -28,6 +29,7 @@ CAPTURE_BUTTON_STATES = {
 }
 STYLE_TRANSFER = StyleTransfer(config["path_for_hub_models"], out_image_size=1024)
 TEXT_GENERATOR = TextGenerator()
+DEEP_DREAMER = DeepDreamer()
 
 
 class VideoCamera(object):
@@ -49,7 +51,7 @@ def load_image(image_path, max_shape=255.):
         raw_image = cv2.imread(image_path)
     elif raw_image.shape[2] != 3:
         raw_image = np.array(Image.open(image_path).convert("RGB"))
-    resize_ratio = min(max_shape/raw_image.shape[0], max_shape/raw_image.shape[1])
+    resize_ratio = min(max_shape / raw_image.shape[0], max_shape / raw_image.shape[1])
     resized_image = Image.fromarray(raw_image).resize(
         (int(resize_ratio * raw_image.shape[1]), int(resize_ratio * raw_image.shape[0]))
     )
@@ -80,9 +82,6 @@ style_transfer_tab = dcc.Tab(
                         dcc.Dropdown(STYLE_FILES, STYLE_FILES[0], id="style_filename", multi=False),
                     ]),
                     dbc.Row([
-                        dcc.Slider(0, 100, 1, value=20, marks=None, id="style_slider")
-                    ]),
-                    dbc.Row([
                         dbc.Button(
                             "STYLE IT!",
                             id="style_button",
@@ -106,7 +105,29 @@ deep_dream_tab = dcc.Tab(
     children=html.Div(
         id="deep_dream_body",
         children=[
-            html.P("Deep dream"),
+            dbc.Row([
+                dcc.Dropdown(
+                    list(DEEP_DREAMER.models.keys()),
+                    list(DEEP_DREAMER.models.keys())[0],
+                    id="deep_model_list",
+                    multi=False
+                ),
+                dcc.Dropdown(
+                    DEEP_DREAMER.models[list(DEEP_DREAMER.models.keys())[0]]["layers"],
+                    DEEP_DREAMER.models[list(DEEP_DREAMER.models.keys())[0]]["layers"][0],
+                    id="deep_layers_list",
+                    multi=True
+                ),
+                dcc.Input(id="num_of_steps", type="number", placeholder="Steps per octave (def=15)"),
+                dcc.Input(id="step_size", type="number", placeholder="Step size (def=1.)"),
+                dcc.Input(id="num_of_octaves", type="number", placeholder="Num of octaves (def=4)"),
+                dcc.Input(id="octave_scale", type="number", placeholder="Octave scale (def=1.4)"),
+                dbc.Button(
+                    "DREAM IT!",
+                    id="deep_dream_button",
+                    color="primary"
+                )
+            ])
         ]
     )
 )
@@ -143,9 +164,8 @@ image_manipulation_tab = dcc.Tab(
                 ]), width=5)
             ]),
             dbc.Row([
-                html.Div([html.P("down")])
+                html.Div([html.Img(id="transformed_image"), ])
             ]),
-            html.Img(id="transformed_image"),
 
         ]
     )
@@ -160,15 +180,15 @@ text_generator_tab = dcc.Tab(
             html.H2("GPT-2 - model by OpenAI"),
             html.P("Please provide text input and press 'GENERATE!' button"),
             dcc.Textarea(
-                    id='text-generator-input',
-                    value='I was on the Dreamersland music and art festival',
-                    style={'width': '100%', 'height': 200},
+                id='text-generator-input',
+                value='I was on the Dreamersland music and art festival',
+                style={'width': '100%', 'height': 200},
             ),
             dbc.Button(
-                        "GENERATE!",
-                        id="generate-text-button",
-                        color="primary"
-                        ),
+                "GENERATE!",
+                id="generate-text-button",
+                color="primary"
+            ),
             html.Div(id='text-generator-output', style={'whiteSpace': 'pre-line', 'width': '500px'})
         ]
     )
@@ -226,6 +246,7 @@ def update_style_image(filename):
 
     return f"data:image/{ext};base64, " + encoded, ndarray_img
 
+
 @app.callback(
     Output("saved_image", "data"),
     Output("capture_image", "label"),
@@ -236,7 +257,8 @@ def capture_image(n_clicks, raw_image):
     global STOP_CAMERA
     image = raw_image.get("data", None)
     STOP_CAMERA = not STOP_CAMERA
-    return np.array(Image.open(BytesIO(base64.b64decode(bytes(image[24:], "UTF-8"))))), CAPTURE_BUTTON_STATES[STOP_CAMERA]
+    return np.array(Image.open(BytesIO(base64.b64decode(bytes(image[24:], "UTF-8"))))), CAPTURE_BUTTON_STATES[
+        STOP_CAMERA]
 
 
 app.clientside_callback(  # todo: add photo capturing!
@@ -249,13 +271,46 @@ app.clientside_callback(  # todo: add photo capturing!
 @app.callback(
     Output("transformed_image", "src"),
     Input("style_button", "n_clicks"),
+    Input("deep_dream_button", "n_clicks"),
     State("saved_image", "data"),
     State("style_image_data", "data"),
+    State("num_of_steps", "value"),
+    State("step_size", "value"),
+    State("num_of_octaves", "value"),
+    State("octave_scale", "value"),
+    State("deep_model_list", "value"),
+    State("deep_layers_list", "value"),
     prevent_initial_call=True
 )
-def transfer_style(n_clicks, content_image, style_image):
-    stylized_image = STYLE_TRANSFER.stylize(content_image, style_image)
-    image = Image.fromarray(stylized_image)
+def transfer_style(
+        style_n_clicks, dream_n_clicks, content_image, style_image, num_of_steps, step_size, num_of_octaves,
+        octave_scale, picked_model, layer_values
+):
+    trigger = dash.callback_context.triggered_id
+    if trigger == "style_button":
+        preprocessed_image = STYLE_TRANSFER.stylize(content_image, style_image)
+    elif trigger == "deep_dream_button":
+        if num_of_steps is None:
+            num_of_steps = 15
+        if step_size is None:
+            step_size = 1.
+        if num_of_octaves is None:
+            num_of_octaves = 4
+        if octave_scale is None:
+            octave_scale = 1.4
+        num_of_steps = int(num_of_steps)
+        step_size = float(step_size)
+        num_of_octaves = int(num_of_octaves)
+        octave_scale = float(octave_scale)
+        if not isinstance(layer_values, list):
+            layer_values = [layer_values]
+        if not len(layer_values):
+            return dash.no_update
+        layer_names = [DEEP_DREAMER.models[picked_model]["layers"][x] for x in layer_values]
+        preprocessed_image = DEEP_DREAMER.perform_deep_dream(
+            content_image, picked_model, layer_names, num_of_steps, step_size, num_of_octaves, octave_scale
+        )
+    image = Image.fromarray(preprocessed_image)
     buffer = BytesIO()
     ext = "png"
     image.save(buffer, format=ext)
@@ -272,6 +327,40 @@ def transfer_style(n_clicks, content_image, style_image):
 )
 def generate_output(n_clicks, input_text):
     return TEXT_GENERATOR.generate(input_text)
+
+
+@app.callback(
+    Output("deep_layers_list", "options"),
+    Output("deep_layers_list", "value"),
+    Input("deep_model_list", "value")
+)
+def pick_model(picked_model):
+    layers_for_picked_model = DEEP_DREAMER.models[picked_model]["layers"]
+    data = [{"label": layer, "value": layer_idx} for layer_idx, layer in enumerate(layers_for_picked_model)]
+    return data, 0
+
+
+# @app.callback(
+#     Output("transformed_image", "src"),
+#     Input("deep_dream_button", "n_clicks"),
+#     State("num_of_steps", "value"),
+#     State("step_size", "value"),
+#     State("num_of_octaves", "value"),
+#     State("octave_scale", "value"),
+# )
+# def perform_deep_dream(n_clicks, num_of_steps, step_size, num_of_octaves, octave_scale):
+#     # stylized_image = STYLE_TRANSFER.stylize(content_image, style_image)
+#     # image = Image.fromarray(stylized_image)
+#     # buffer = BytesIO()
+#     # ext = "png"
+#     # image.save(buffer, format=ext)
+#     # encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+#     print(num_of_octaves)
+#     print(num_of_steps)
+#     print(step_size)
+#     print(octave_scale)
+#     # return f"data:image/{ext};base64, " + encoded
+#     return dash.no_update
 
 
 if __name__ == '__main__':
