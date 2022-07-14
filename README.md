@@ -1,4 +1,5 @@
 # ML FUN!
+## LAYOUT IS STILL WIP 🚧🚧🚧
 So basically the premise of this repo is to have fun with some Deep Learning applications.
 
 At this moment you can have fun with:
