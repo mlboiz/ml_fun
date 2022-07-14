@@ -22,6 +22,7 @@ from style_transfer.style_transfer import StyleTransfer
 from text_generation.text_generation import TextGenerator
 from deep_dream.deep_dream import DeepDreamer
 
+# since this code is for local use only forgive us those globals
 STOP_CAMERA = False
 CAPTURE_BUTTON_STATES = {
     True: "NEW IMAGE!",
@@ -338,29 +339,6 @@ def pick_model(picked_model):
     layers_for_picked_model = DEEP_DREAMER.models[picked_model]["layers"]
     data = [{"label": layer, "value": layer_idx} for layer_idx, layer in enumerate(layers_for_picked_model)]
     return data, 0
-
-
-# @app.callback(
-#     Output("transformed_image", "src"),
-#     Input("deep_dream_button", "n_clicks"),
-#     State("num_of_steps", "value"),
-#     State("step_size", "value"),
-#     State("num_of_octaves", "value"),
-#     State("octave_scale", "value"),
-# )
-# def perform_deep_dream(n_clicks, num_of_steps, step_size, num_of_octaves, octave_scale):
-#     # stylized_image = STYLE_TRANSFER.stylize(content_image, style_image)
-#     # image = Image.fromarray(stylized_image)
-#     # buffer = BytesIO()
-#     # ext = "png"
-#     # image.save(buffer, format=ext)
-#     # encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
-#     print(num_of_octaves)
-#     print(num_of_steps)
-#     print(step_size)
-#     print(octave_scale)
-#     # return f"data:image/{ext};base64, " + encoded
-#     return dash.no_update
 
 
 if __name__ == '__main__':

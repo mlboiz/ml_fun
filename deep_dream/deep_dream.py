@@ -1,7 +1,6 @@
 import PIL.Image
 import tensorflow as tf
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
@@ -344,12 +343,10 @@ class DeepDreamer:
 # num_of_octaves: 4
 # octave_scale: 1.4
 
+
 def main():
-    # url = 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg'
-    # original_img = download(url, max_dim=500)
-    path = "/Users/gwilczynski/Desktop/xd2.png"
+    path = ""
     original_img = open_image(path, max_dim=None)
-    # show(original_img)
     model_type = "vgg16"
     num_of_steps = 15
     step_size = 1.
@@ -381,15 +378,10 @@ def main():
         base_model = tf.keras.applications.vgg16.VGG16(
             include_top=False,
             weights="imagenet",
-            # input_shape=original_img.shape,
         )
 
-    # layer_names = ["mixed3", "mixed5"]
-    # major_layer_names = ["block1_conv2", "block2_conv2", "block3_conv3", "block4_conv3", "block5_conv3"]
-    # major_layer_names = ["block4_conv1", "block4_conv2", "block5_conv1", "block5_conv2"]
     major_layer_names = ["block5_conv1"]
     specified_channel = None
-    # major_layer_names = ["conv5_block1_2_conv", "conv5_block2_2_conv", "conv4_block1_3_conv", "conv3_block3_out", "conv3_block3_1_conv"]
 
     for layer_names in major_layer_names:
         print(f"{layer_names}")
@@ -398,47 +390,12 @@ def main():
         layers = [base_model.get_layer(name).output for name in layer_names]
 
         dream_model = tf.keras.Model(inputs=base_model.input, outputs=layers)
-        deep_dream_model = DeepDream(dream_model)
         gradient_model = TiledDeepDream(dream_model)
 
-        # dreamed_image = run_deep_dream_simple(
-        #     original_img,
-        #     deep_dream_model,
-        #     steps=100,
-        #     step_size=0.01
-        # )
-        # octaved_dreamed_image = run_octave_deep_dream(
-        #     original_img,
-        #     deep_dream_model,
-        #     1.3,
-        #     [-2, -1, 0, 1, 2],
-        #     50,
-        #     1e-2
-        # )
-        # octaved_dreamed_image = run_random_octave_deep_dream(
-        #     original_img,
-        #     gradient_model,
-        #     100,
-        #     1e-2,
-        #     range(-2, 3),
-        #     1.3
-        # )
-        # octaved_dreamed_image = run_random_octave_deep_dream(
-        #     original_img,
-        #     gradient_model,
-        #     num_of_steps,
-        #     1e-2,
-        #     range(-2, 3),
-        #     1.3,
-        #     model_type,
-        #     specified_channel
-        # )
         octaved_dreamed_image = different_deep_dream(
             original_img, gradient_model, steps_per_octave=num_of_steps, step_size=step_size, octave_n=4,
             octave_scale=1.4, model_type=model_type, specified_channel=None
         )
-        # show(octaved_dreamed_image)
-        # save
         if isinstance(octaved_dreamed_image, np.ndarray):
             pil_img = PIL.Image.fromarray(octaved_dreamed_image)
         else:

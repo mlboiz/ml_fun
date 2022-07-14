@@ -50,7 +50,7 @@ def show_n(images, titles=('',)):
 def main():
     content_image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Golden_Gate_Bridge_from_Battery_Spencer.jpg/640px-Golden_Gate_Bridge_from_Battery_Spencer.jpg'
     style_image_url = 'https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg'
-    path_for_hub_models = "/home/bulletprove/repos/ml_fun/style_transfer/hub_models"
+    path_for_hub_models = ""
     os.environ["TFHUB_CACHE_DIR"] = path_for_hub_models
 
     out_image_size = 384
